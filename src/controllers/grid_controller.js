@@ -1,6 +1,7 @@
 import { Controller } from '@hotwired/stimulus';
 import { buildDisplayList, computeWindow, formatValue, getValue, applyFilters, applyQuickFilter, applySort, aggregateRange, buildHeaderLayout } from '../lib/model.js';
 import { createGridApi } from '../lib/api.js';
+import { COLUMN_MENU_SECTIONS, assembleColumnMenu } from '../lib/column_menu.js';
 import { el, setAttrs, cloneTemplate, emit } from '../lib/dom.js';
 import { getRenderer, defaultParseValue, defaultCopyValue } from '../lib/renderers.js';
 
@@ -120,7 +121,8 @@ export default class GridController extends Controller {
     treeDisplayField:    { type: String,  default: '' },                                // column whose cell carries the indent + chevron (default: first non-gutter col)
     treeDefaultExpanded: { type: Number,  default: -1 },                               // -1 all expanded · 0 only roots · N first-N levels expanded
     acceptFiles:         { type: Boolean, default: false },                            // wire every data cell as a file drop target; emits grid:fileAttached
-    attachmentsField:    { type: String,  default: '' },                                // when set, dropped files are auto-appended to row[<field>] as { name, size, type } objects (the default behaviour when no consumer calls preventDefault on the event)
+    attachmentsField:    { type: String,  default: '' },
+    columnMenu:          { type: Array,   default: COLUMN_MENU_SECTIONS },               // header right-click menu sections to show (see lib/column_menu.js); [] turns it off                                // when set, dropped files are auto-appended to row[<field>] as { name, size, type } objects (the default behaviour when no consumer calls preventDefault on the event)
   };
 
   initialize() {
@@ -2386,13 +2388,14 @@ export default class GridController extends Controller {
     const field = th.getAttribute('data-field') || th.getAttribute('data-header-cell-field-value');
     const col = this._colByField(field);
     if (!col || col._isCheckbox || col._isRowNumber || col._isGroupCol || col._isPivot || col._isSpacer) return;
+    const items = this._columnMenuItems(col);
+    if (!items.length) return;   // columnMenu: [] — leave the browser's menu
     e.preventDefault();
-    this._showColumnMenu(col, e.clientX, e.clientY);
+    this._showColumnMenu(col, e.clientX, e.clientY, items);
   };
 
-  _showColumnMenu(col, x, y) {
+  _showColumnMenu(col, x, y, items = this._columnMenuItems(col)) {
     this._closeColumnMenu();
-    const items = this._columnMenuItems(col);
     const menu = el('div', { class: 'sg-column-menu', role: 'menu' });
     for (const item of items) {
       if (item === 'separator') {
@@ -2460,57 +2463,56 @@ export default class GridController extends Controller {
     const aggFunc   = this.state.group.aggs[col.field];
     const isNum     = col.type === 'number';
 
-    const items = [];
-    if (col.pinned !== 'left')  items.push({ label: 'Pin left',  action: () => api.setColumnPinned(col.field, 'left') });
-    if (col.pinned !== 'right') items.push({ label: 'Pin right', action: () => api.setColumnPinned(col.field, 'right') });
-    if (col.pinned)             items.push({ label: 'Unpin',     action: () => api.setColumnPinned(col.field, null) });
-    items.push('separator');
+    const pin = [];
+    if (col.pinned !== 'left')  pin.push({ label: 'Pin left',  action: () => api.setColumnPinned(col.field, 'left') });
+    if (col.pinned !== 'right') pin.push({ label: 'Pin right', action: () => api.setColumnPinned(col.field, 'right') });
+    if (col.pinned)             pin.push({ label: 'Unpin',     action: () => api.setColumnPinned(col.field, null) });
 
-    items.push({ label: 'Autosize this column', action: () => api.autoSizeColumn(col.field) });
-    items.push({ label: 'Autosize all columns', action: () => api.autoSizeAllColumns() });
-    items.push('separator');
+    const autosize = [
+      { label: 'Autosize this column', action: () => api.autoSizeColumn(col.field) },
+      { label: 'Autosize all columns', action: () => api.autoSizeAllColumns() },
+    ];
 
-    items.push(isGrouped
+    const group = [isGrouped
       ? { label: `Ungroup ${label}`, action: () => api.removeRowGroupColumn(col.field) }
-      : { label: `Group by ${label}`, action: () => api.addRowGroupColumn(col.field) });
+      : { label: `Group by ${label}`, action: () => api.addRowGroupColumn(col.field) }];
 
-    items.push(isPivot
+    const pivot = [isPivot
       ? { label: `Remove ${label} from pivot`, action: () => api.removePivotColumn(col.field) }
       : { label: `Pivot by ${label}`, action: () => {
         if (!api.isPivotMode()) api.setPivotMode(true);
         api.addPivotColumn(col.field);
-      } });
+      } }];
 
-    // Aggregate section: only worth showing when the col is numeric (so
+    // Aggregates: only worth showing when the col is numeric (so
     // sum/avg/min/max make sense) or already carries an agg.
+    const aggregate = [];
     if (isNum || aggFunc) {
-      items.push('separator');
       for (const fn of ['sum', 'avg', 'count', 'min', 'max']) {
-        items.push({
+        aggregate.push({
           label: `Aggregate: ${fn}`,
           active: aggFunc === fn,
           action: () => api.addValueColumn(col.field, fn),
         });
       }
-      if (aggFunc) {
-        items.push({ label: 'Remove aggregation', action: () => api.removeValueColumn(col.field) });
-      }
+      if (aggFunc) aggregate.push({ label: 'Remove aggregation', action: () => api.removeValueColumn(col.field) });
     }
 
-    items.push('separator');
-    items.push({ label: 'Hide column', action: () => api.setColumnVisible(col.field, false) });
-    items.push({
-      label: 'Show all columns',
-      action: () => {
-        this.state.columnDefs.forEach((c) => {
-          if (c.hidden && !c._isGroupCol && !c._isPivot && !c._isCheckbox && !c._isRowNumber) {
-            api.setColumnVisible(c.field, true);
-          }
-        });
+    const visibility = [
+      { label: 'Hide column', action: () => api.setColumnVisible(col.field, false) },
+      {
+        label: 'Show all columns',
+        action: () => {
+          this.state.columnDefs.forEach((c) => {
+            if (c.hidden && !c._isGroupCol && !c._isPivot && !c._isCheckbox && !c._isRowNumber) {
+              api.setColumnVisible(c.field, true);
+            }
+          });
+        },
       },
-    });
+    ];
 
-    return items;
+    return assembleColumnMenu({ pin, autosize, group, pivot, aggregate, visibility }, this.columnMenuValue);
   }
 
   // ----- Event delegation (clicks on rendered tbody) -----

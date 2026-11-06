@@ -3,6 +3,14 @@
 All notable changes to the `@ninjaai/stimulus_grid` JS package. The Rails
 engine has its own log at `gem/stimulus_grid_rails/CHANGELOG.md`.
 
+## Unreleased
+
+### Added
+
+- **`column-menu`** — choose which sections the header right-click menu shows
+  (`pin`, `autosize`, `group`, `pivot`, `aggregate`, `visibility`), or turn it
+  off with `[]`. The Rails partial takes `column_menu:`.
+
 ## 0.2.0 (2026-08-28)
 
 The renderer release. 0.1.0 shipped the grid core; this turns it into a

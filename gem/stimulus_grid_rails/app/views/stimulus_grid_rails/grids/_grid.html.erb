@@ -86,6 +86,12 @@
   # Leave blank to opt out (default).
   persist_key = local_assigns.fetch(:persist_key, "")
 
+  # Header right-click menu: which sections to show, from
+  # %w[pin autosize group pivot aggregate visibility] (default: all).
+  # [] turns the menu off. Server-side grids usually drop group, pivot and
+  # aggregate, which would only see the loaded page of rows.
+  column_menu = local_assigns.fetch(:column_menu, nil)
+
   # Master/detail rows: click the chevron next to a master row to expand a
   # detail panel beneath it. `detail_template` is the id of a <template>
   # cloned per expansion; `detail_rows_key` is the row attribute holding
@@ -131,6 +137,7 @@
      <% if column_groups %>data-grid-column-groups-value="<%= column_groups.to_json %>"<% end %>
      data-grid-pinned-bottom-row-value="<%= pinned_bottom_row %>"
      data-grid-persist-key-value="<%= persist_key %>"
+     <% unless column_menu.nil? %>data-grid-column-menu-value="<%= Array(column_menu).map(&:to_s).to_json %>"<% end %>
      data-grid-master-detail-value="<%= master_detail %>"
      <% if detail_template %>data-grid-detail-template-value="<%= detail_template %>"<% end %>
      <% if detail_rows_key %>data-grid-detail-rows-key-value="<%= detail_rows_key %>"<% end %>
