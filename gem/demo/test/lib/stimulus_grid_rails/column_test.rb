@@ -85,6 +85,11 @@ class StimulusGridRails::ColumnTest < ActiveSupport::TestCase
 
   # ---- rendered attributes ----
 
+  test "hidden columns render hidden; others leave the attribute out" do
+    assert_equal "true", col(:notes, type: :string, hidden: true).header_data_attrs["data-header-cell-hidden-value"]
+    assert_nil col(:notes, type: :string).header_data_attrs["data-header-cell-hidden-value"]
+  end
+
   test "header_data_attrs reflect sortable/filterable/renderer/editor" do
     attrs = col(:sport, type: :enum, sortable: true, filterable: true,
                 cell_renderer: "pill", cell_editor: "pick").header_data_attrs

@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `column ..., hidden: true` registers a column that starts hidden; users can
+  show it from the column menu or side panel, and saved layouts keep it.
+
 ## 0.2.0 (2026-08-28)
 
 Ships the full cell-renderer library to Rails, adds Active Storage attachments,
