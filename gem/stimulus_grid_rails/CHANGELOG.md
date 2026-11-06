@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- `column ..., hidden: true` registers a column that starts hidden; users can
+  show it from the column menu or side panel, and saved layouts keep it.
+
 ### Changed
 
 - Server-side grids now send header filters to the server. Filters set in the

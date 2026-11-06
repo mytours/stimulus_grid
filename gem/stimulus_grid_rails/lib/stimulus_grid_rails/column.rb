@@ -10,14 +10,14 @@ module StimulusGridRails
 
     attr_reader :name, :type, :editor, :editor_config, :enum_values, :concurrency,
                 :depends_on, :validators, :header, :width, :pinned, :cell_renderer,
-                :cell_editor, :cell_renderer_config
+                :cell_editor, :cell_renderer_config, :hidden
 
     def initialize(name, type:, editable: false, editor: nil, editor_config: {},
                    enum_values: nil, concurrency: :last_write_wins,
                    computed: false, depends_on: [], validate: nil,
                    header: nil, width: nil, pinned: nil, cell_renderer: nil,
                    cell_editor: nil, cell_renderer_config: nil,
-                   sortable: true, filterable: true, searchable: nil)
+                   sortable: true, filterable: true, searchable: nil, hidden: false)
       raise ArgumentError, "Unknown column type #{type.inspect}" unless TYPES.include?(type)
       @name          = name.to_sym
       @type          = type
@@ -40,6 +40,7 @@ module StimulusGridRails
       @cell_editor   = cell_editor
       @cell_renderer_config = cell_renderer_config
       @sortable      = sortable
+      @hidden        = hidden                         # registered but not shown until the user turns it on
       @filterable    = filterable
       # Global search defaults to text-ish columns; numeric/date/boolean opt in.
       @searchable    = searchable.nil? ? %i[string text enum multi_enum reference].include?(type) : searchable
@@ -169,6 +170,7 @@ module StimulusGridRails
         "data-header-cell-filter-value" => (@filterable ? filter_type_for_client : nil),
         "data-header-cell-editable-value" => editable_static?.to_s,
         "data-header-cell-pinned-value" => @pinned,
+        "data-header-cell-hidden-value" => (@hidden ? "true" : nil),
         "data-header-cell-width-value" => @width,
         "data-header-cell-cell-renderer-value" => @cell_renderer,
         "data-header-cell-cell-editor-value" => @cell_editor,
