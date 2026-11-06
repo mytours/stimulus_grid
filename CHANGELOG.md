@@ -10,6 +10,11 @@ engine has its own log at `gem/stimulus_grid_rails/CHANGELOG.md`.
 - **`column-menu`** — choose which sections the header right-click menu shows
   (`pin`, `autosize`, `group`, `pivot`, `aggregate`, `visibility`), or turn it
   off with `[]`. The Rails partial takes `column_menu:`.
+- **Set filter** — `filter: 'set'` columns get a pick-from-list filter popover
+  (with search past eight choices and a "(Blank)" choice), saving
+  `{ filterType: 'set', type: 'in', value: [...] }`. Choices come from the
+  column's `cellRendererConfig.options`, else `enumValues`, else the distinct
+  row values. `setFilterOptions` is exported from `lib/model.js`.
 
 ## 0.2.0 (2026-08-28)
 

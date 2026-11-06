@@ -68,6 +68,27 @@ const SET_OPS = {
   in: (v, q) => Array.isArray(q) && q.includes(String(v ?? '')),
 };
 
+/* The choices a set filter offers for `col`: its options (cellRendererConfig
+ * options, else enumValues), or failing that the distinct values in `rows`.
+ * Always ends with a blank choice (value ''), which matches empty cells. */
+export function setFilterOptions(col, rows = []) {
+  let options = col.cellRendererConfig?.options;
+  if (Array.isArray(options) && options.length) {
+    options = options.map((o) => (typeof o === 'object' ? { value: String(o.value ?? ''), label: String(o.label ?? o.value ?? '') } : { value: String(o), label: String(o) }));
+  } else if (Array.isArray(col.enumValues) && col.enumValues.length) {
+    options = col.enumValues.map((v) => ({ value: String(v), label: String(v) }));
+  } else {
+    const seen = new Set();
+    for (const row of rows) {
+      const v = getValue(row, col);
+      if (v != null && v !== '') seen.add(String(v));
+    }
+    options = [...seen].sort((a, b) => a.localeCompare(b)).map((v) => ({ value: v, label: v }));
+  }
+  options = options.filter((o) => o.value !== '');
+  return [...options, { value: '', label: '(Blank)' }];
+}
+
 const OPS_BY_TYPE = { text: TEXT_OPS, number: NUM_OPS, date: DATE_OPS, boolean: BOOL_OPS, set: SET_OPS };
 
 function passesFilter(row, col, filter) {

@@ -320,6 +320,9 @@ body.sg-row-dragging, body.sg-row-dragging * { cursor: grabbing !important; }
   background: #fff;
   box-sizing: border-box;
 }
+.sg-set-filter-list { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; }
+.sg-set-filter-option { display: flex; align-items: center; gap: 6px; padding: 3px 2px; color: var(--sg-fg, inherit); cursor: pointer; }
+.sg-filter-popover .sg-set-filter-option input { width: auto; margin: 0; }
 .sg-filter-popover .sg-filter-actions {
   display: flex;
   justify-content: flex-end;
