@@ -85,6 +85,18 @@ class StimulusGridRails::ColumnTest < ActiveSupport::TestCase
 
   # ---- rendered attributes ----
 
+  test "set filter: value in the chosen list; an empty string also matches blanks" do
+    sport = col(:sport, type: :enum, enum_values: %w[Swimming Cycling])
+    sql = sport.filter_predicate(TABLE, { "filterType" => "set", "type" => "in", "value" => %w[Swimming Cycling] }).to_sql
+    assert_match(/IN \('Swimming', 'Cycling'\)/, sql)
+
+    with_blank = sport.filter_predicate(TABLE, { "type" => "in", "value" => [ "Swimming", "" ] }).to_sql
+    assert_match(/IN \('Swimming'\)/, with_blank)
+    assert_match(/IS NULL/, with_blank)
+    assert_match(/IS NULL/, sport.filter_predicate(TABLE, { "type" => "in", "value" => [ "" ] }).to_sql)
+    assert_equal "set", sport.header_data_attrs["data-header-cell-filter-value"]
+  end
+
   test "header_data_attrs reflect sortable/filterable/renderer/editor" do
     attrs = col(:sport, type: :enum, sortable: true, filterable: true,
                 cell_renderer: "pill", cell_editor: "pick").header_data_attrs

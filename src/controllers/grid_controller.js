@@ -1,5 +1,5 @@
 import { Controller } from '@hotwired/stimulus';
-import { buildDisplayList, computeWindow, formatValue, getValue, applyFilters, applyQuickFilter, applySort, aggregateRange, buildHeaderLayout } from '../lib/model.js';
+import { buildDisplayList, computeWindow, formatValue, getValue, applyFilters, applyQuickFilter, applySort, aggregateRange, buildHeaderLayout, setFilterOptions } from '../lib/model.js';
 import { createGridApi } from '../lib/api.js';
 import { el, setAttrs, cloneTemplate, emit } from '../lib/dom.js';
 import { getRenderer, defaultParseValue, defaultCopyValue } from '../lib/renderers.js';
@@ -466,6 +466,7 @@ export default class GridController extends Controller {
   };
 
   _openFallbackFilterPopover(col, anchorEl) {
+    if (col.filter === 'set') return this._openSetFilterPopover(col, anchorEl);
     // Built-in popover so v0.1 has filters even before filter_controller binds.
     const current = this.state.filterModel[col.field] || {};
     const opts = filterOptionsFor(col.filter);
@@ -523,6 +524,55 @@ export default class GridController extends Controller {
     this._filterPopover = pop;
     document.addEventListener('mousedown', this._onDocMouseDown);
     input.focus();
+  }
+
+  // Set filter: tick the values to keep. Saves { filterType: 'set', type:
+  // 'in', value: [...] }; ticking nothing (or everything) clears the filter.
+  _openSetFilterPopover(col, anchorEl) {
+    const current = this.state.filterModel[col.field];
+    const chosen = new Set(current?.type === 'in' ? current.value.map(String) : []);
+    const options = setFilterOptions(col, this.state.rowData);
+    const pop = el('div', { class: 'sg-filter-popover sg-set-filter' });
+
+    const search = el('input', { type: 'search', placeholder: 'Search…', 'aria-label': 'Search values' });
+    const list = el('div', { class: 'sg-set-filter-list', role: 'group' });
+    const boxes = options.map((o) => {
+      const box = el('input', { type: 'checkbox', value: o.value });
+      box.checked = chosen.has(o.value);
+      const row = el('label', { class: 'sg-set-filter-option' });
+      row.append(box, el('span', {}, o.label));
+      list.appendChild(row);
+      return { box, row, text: o.label.toLowerCase() };
+    });
+    search.addEventListener('input', () => {
+      const q = search.value.trim().toLowerCase();
+      for (const b of boxes) b.row.style.display = !q || b.text.includes(q) ? '' : 'none';
+    });
+
+    const actions = el('div', { class: 'sg-filter-actions' });
+    const clear = el('button', { type: 'button' }, 'Clear');
+    const apply = el('button', { type: 'button', class: 'primary' }, 'Apply');
+    actions.append(clear, apply);
+    clear.addEventListener('click', () => {
+      this.setColumnFilter(col.field, null);
+      this._closeFilterPopover();
+    });
+    apply.addEventListener('click', () => {
+      const values = boxes.filter((b) => b.box.checked).map((b) => b.box.value);
+      const all = values.length === 0 || values.length === boxes.length;
+      this.setColumnFilter(col.field, all ? null : { filterType: 'set', type: 'in', value: values });
+      this._closeFilterPopover();
+    });
+
+    if (options.length > 8) pop.append(search);
+    pop.append(list, actions);
+    document.body.appendChild(pop);
+    const rect = anchorEl.getBoundingClientRect();
+    pop.style.left = `${rect.left + window.scrollX}px`;
+    pop.style.top = `${rect.bottom + window.scrollY + 2}px`;
+    this._filterPopover = pop;
+    document.addEventListener('mousedown', this._onDocMouseDown);
+    (options.length > 8 ? search : boxes[0]?.box)?.focus();
   }
 
   // ----- Column registration (called by header_cell_controller) -----

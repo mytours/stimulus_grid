@@ -3,6 +3,16 @@
 All notable changes to the `@ninjaai/stimulus_grid` JS package. The Rails
 engine has its own log at `gem/stimulus_grid_rails/CHANGELOG.md`.
 
+## Unreleased
+
+### Added
+
+- **Set filter** — `filter: 'set'` columns get a pick-from-list filter popover
+  (with search past eight choices and a "(Blank)" choice), saving
+  `{ filterType: 'set', type: 'in', value: [...] }`. Choices come from the
+  column's `cellRendererConfig.options`, else `enumValues`, else the distinct
+  row values. `setFilterOptions` is exported from `lib/model.js`.
+
 ## 0.2.0 (2026-08-28)
 
 The renderer release. 0.1.0 shipped the grid core; this turns it into a

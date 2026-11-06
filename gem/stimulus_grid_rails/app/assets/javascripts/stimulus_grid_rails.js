@@ -103,6 +103,10 @@ class GridSyncController extends Controller {
     //   gridEl.dispatchEvent(new CustomEvent("grid-sync:filter", { detail: { column, criteria } }))  // criteria=null clears
     //   gridEl.dispatchEvent(new CustomEvent("grid-sync:clear-filters"))
     this._query = { q: "", filters: {}, sort: [] }
+    // Filters set through the grid's own header filter popovers (its
+    // filterModel). Kept apart from grid-sync:filter ones and merged when
+    // fetching, so clearing one source leaves the other alone.
+    this._gridFilters = {}
     // In server-side mode, a query change resets to page 0 (debounced); the
     // resulting paginationChanged is the single trigger that fetches a window.
     // In client mode, a query change refetches the (capped) full set directly.
@@ -133,8 +137,24 @@ class GridSyncController extends Controller {
         this._query.sort = e?.detail?.sortModel || []
         this._gridEl.gridApi?.paginationGoToFirstPage()   // → paginationChanged → fetch
       }
+      // The grid only holds one page, so its header filters must run on the
+      // server too; so must a restored layout (applyColumnState: a saved
+      // view or persisted state), which sets sort and filters at once.
+      this._onSrvFilter = (e) => {
+        this._gridFilters = { ...(e?.detail?.filterModel || {}) }
+        this._afterQueryChange()
+      }
+      this._onSrvStateApplied = () => {
+        const api = this._gridEl.gridApi
+        if (!api) return
+        this._query.sort = api.getSortModel()
+        this._gridFilters = api.getFilterModel()
+        api.paginationGoToFirstPage()
+      }
       this._gridEl.addEventListener("grid:paginationChanged", this._onSrvPage)
       this._gridEl.addEventListener("grid:sortChanged", this._onSrvSort)
+      this._gridEl.addEventListener("grid:filterChanged", this._onSrvFilter)
+      this._gridEl.addEventListener("grid:columnStateApplied", this._onSrvStateApplied)
     }
 
     // Undo / redo keyboard shortcuts (RAILS.md §16). Cmd/Ctrl+Z undoes,
@@ -166,6 +186,8 @@ class GridSyncController extends Controller {
     this._gridEl.removeEventListener("grid-sync:clear-filters", this._onClearFilters)
     if (this._onSrvPage) this._gridEl.removeEventListener("grid:paginationChanged", this._onSrvPage)
     if (this._onSrvSort) this._gridEl.removeEventListener("grid:sortChanged", this._onSrvSort)
+    if (this._onSrvFilter) this._gridEl.removeEventListener("grid:filterChanged", this._onSrvFilter)
+    if (this._onSrvStateApplied) this._gridEl.removeEventListener("grid:columnStateApplied", this._onSrvStateApplied)
     this._gridEl.removeEventListener("grid:cellClicked", this._onCellClicked)
     document.removeEventListener("keydown", this._onKeydown)
     document.removeEventListener("paste", this._onPaste)
@@ -248,8 +270,9 @@ class GridSyncController extends Controller {
     if (!api) return
     const url = new URL(this.rowsPathValue, window.location.origin)
     if (this._query.q) url.searchParams.set("q", this._query.q)
-    if (Object.keys(this._query.filters).length) {
-      url.searchParams.set("filters", JSON.stringify(this._query.filters))
+    const filters = { ...this._gridFilters, ...this._query.filters }
+    if (Object.keys(filters).length) {
+      url.searchParams.set("filters", JSON.stringify(filters))
     }
     if (this.serverSideValue) {
       url.searchParams.set("page", api.paginationGetCurrentPage())

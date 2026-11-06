@@ -18,6 +18,7 @@ import {
   buildHeaderLayout,
   isPivotField,
   buildTreeDisplayList,
+  setFilterOptions,
 } from '../src/lib/model.js';
 
 /* ----------------------------------------------------------------------------
@@ -1257,5 +1258,29 @@ describe('buildDisplayList (tree data)', () => {
     expect(out.tree).toBeUndefined();
     expect(out.treeMeta).toBeUndefined();
     expect(out.pageRows).toHaveLength(orgRows.length);
+  });
+});
+
+describe('setFilterOptions', () => {
+  it('uses the column options, then a blank choice', () => {
+    const col = { field: 'owner', cellRendererConfig: { options: [{ value: 'u1', label: 'Ana' }, { value: 'u2', label: 'Ben' }] } };
+    expect(setFilterOptions(col)).toEqual([
+      { value: 'u1', label: 'Ana' }, { value: 'u2', label: 'Ben' }, { value: '', label: '(Blank)' },
+    ]);
+  });
+
+  it('falls back to enumValues, then to the distinct row values', () => {
+    expect(setFilterOptions({ field: 'p', enumValues: ['low', 'high'] }).map((o) => o.value)).toEqual(['low', 'high', '']);
+    const rows = [{ c: 'USA' }, { c: 'Canada' }, { c: 'USA' }, { c: null }];
+    expect(setFilterOptions({ field: 'c' }, rows).map((o) => o.value)).toEqual(['Canada', 'USA', '']);
+  });
+});
+
+describe('set filter', () => {
+  const rows = [{ id: 1, c: 'USA' }, { id: 2, c: 'Canada' }, { id: 3, c: null }];
+  const cols = { c: { field: 'c', filter: 'set' } };
+  it('keeps rows whose value is chosen; "" matches blanks', () => {
+    expect(applyFilters(rows, { c: { filterType: 'set', type: 'in', value: ['USA'] } }, cols).map((r) => r.id)).toEqual([1]);
+    expect(applyFilters(rows, { c: { filterType: 'set', type: 'in', value: ['Canada', ''] } }, cols).map((r) => r.id)).toEqual([2, 3]);
   });
 });

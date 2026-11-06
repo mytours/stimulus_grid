@@ -114,6 +114,8 @@ module StimulusGridRails
       raw = criteria["value"]  || criteria[:value]
       raw2 = criteria["value2"] || criteria[:value2]
 
+      return set_predicate(col, raw) if op == "in"
+
       case @type
       when :string, :text, :enum, :reference
         text_predicate(col, op, raw.to_s)
@@ -181,6 +183,17 @@ module StimulusGridRails
     # as a pattern. Arel still quotes the value, so this is only about semantics.
     def like_escape(str)
       str.gsub(/[\\%_]/) { |c| "\\#{c}" }
+    end
+
+    # Set filter: the value is one of `values`; "" stands for blank.
+    def set_predicate(col, values)
+      values = Array(values).map(&:to_s)
+      chosen = values.reject(&:empty?)
+      pred = chosen.any? ? col.in(chosen) : nil
+      return pred unless values.include?("")
+
+      blank = col.eq(nil).or(col.eq(""))
+      pred ? pred.or(blank) : blank
     end
 
     def text_predicate(col, op, val)
@@ -268,6 +281,7 @@ module StimulusGridRails
       when :integer, :bigint, :decimal, :money then "number"
       when :date, :datetime           then "date"
       when :boolean                   then "boolean"
+      when :enum                      then "set"         # pick values from the list
       else "text"
       end
     end

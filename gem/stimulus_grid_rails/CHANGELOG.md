@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Server-side grids now send header filters to the server. Filters set in the
+  grid's own filter popovers (its `filterModel`) were applied only to the loaded
+  page; `grid-sync` now merges them with `grid-sync:filter` filters and
+  refetches. Restoring a layout (`applyColumnState`, e.g. from `persist_key`)
+  refetches with its sort and filters too.
+- `:enum` columns filter by picking values (`set` filter, `IN (...)` on the
+  server) instead of matching label text.
+
 ## 0.2.0 (2026-08-28)
 
 Ships the full cell-renderer library to Rails, adds Active Storage attachments,
