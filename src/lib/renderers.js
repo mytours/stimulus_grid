@@ -4368,12 +4368,17 @@ export function loadingShimmer({
  * `options` may be an array of strings, or `{ value, label, color }`
  * objects. The cell value is stored as the option's `value` (or the
  * string itself if a bare array). `clearable: true` adds a "(none)"
- * row at the top. */
+ * row at the top.
+ *
+ * An option with `inactive: true` (a former user, a retired product)
+ * still labels cells that hold it, but the editor leaves it out until
+ * "Show all" is ticked (`inactiveLabel` renames that switch). Lists longer
+ * than 8 get a search box; arrow keys move between options. */
 function normaliseSelectOptions(options) {
   if (!Array.isArray(options)) return [];
   return options.map((o) => {
     if (o == null) return null;
-    if (typeof o === 'object') return { value: o.value, label: o.label ?? String(o.value), color: o.color || null, icon: o.icon || null };
+    if (typeof o === 'object') return { value: o.value, label: o.label ?? String(o.value), color: o.color || null, icon: o.icon || null, inactive: !!o.inactive };
     return { value: o, label: String(o), color: null, icon: null };
   }).filter(Boolean);
 }
@@ -4414,6 +4419,7 @@ function resolveSelectConfig(ctx, defaults) {
     colorMap:    cfg?.colorMap    ?? defaults.colorMap,
     editable:    cfg?.editable    ?? defaults.editable,
     separator:   cfg?.separator   ?? defaults.separator,
+    inactiveLabel: cfg?.inactiveLabel ?? defaults.inactiveLabel,
   };
 }
 
@@ -4423,6 +4429,7 @@ export function select({
   editable = true,
   clearable = false,
   colorMap = null,
+  inactiveLabel = 'Show all',
 } = {}) {
   const baseOpts = normaliseSelectOptions(options);
   if (colorMap && typeof colorMap === 'object') {
@@ -4434,7 +4441,7 @@ export function select({
     const { value, td } = ctx;
     // Per-cell config resolution lets a single registered renderer power
     // many columns whose options come from the server's column DSL.
-    const cfg = resolveSelectConfig(ctx, { options: baseOpts, placeholder, clearable, colorMap, editable });
+    const cfg = resolveSelectConfig(ctx, { options: baseOpts, placeholder, clearable, colorMap, editable, inactiveLabel });
     let opts = baseOpts;
     if (baseOpts.length === 0 && cfg.options.length) {
       opts = normaliseSelectOptions(cfg.options);
@@ -4448,6 +4455,7 @@ export function select({
       td.classList.add('sg-renderer-select-cell');
       td._sgSelectOpts = opts;
       td._sgSelectClearable = cfg.clearable;
+      td._sgSelectInactiveLabel = cfg.inactiveLabel;
     }
 
     if (cfg.editable && td && !td._sgSelectEditBound) {
@@ -4511,26 +4519,76 @@ function openSelectEditor(anchor, ctx) {
     closeSelectEditor();
   }
 
-  if (clearable) {
-    const noneRow = h('button', {
-      type: 'button',
-      class: 'sg-renderer-select-option sg-renderer-select-option-none',
-      role: 'option',
-    }, document.createTextNode('(none)'));
-    noneRow.addEventListener('click', () => commit(null));
-    pop.append(noneRow);
-  }
+  const hasInactive = opts.some((o) => o.inactive);
+  let showAll = false;
+  let query = '';
+  const list = h('div', { class: 'sg-renderer-select-list' });
 
-  for (const opt of opts) {
-    const row = h('button', {
+  let search = null;
+  if (opts.length > 8) {
+    search = h('input', { type: 'search', class: 'sg-renderer-select-search', placeholder: 'Search…', 'aria-label': 'Search options' });
+    search.addEventListener('input', () => { query = search.value.trim().toLowerCase(); renderList(); });
+    pop.append(search);
+  }
+  pop.append(list);
+
+  function optionButton(opt) {
+    const btn = h('button', {
       type: 'button',
-      class: `sg-renderer-select-option${String(opt.value) === String(current) ? ' is-selected' : ''}`,
+      class: `sg-renderer-select-option${String(opt.value) === String(current) ? ' is-selected' : ''}${opt.inactive ? ' is-inactive' : ''}`,
       role: 'option',
     });
-    row.append(buildSelectPill(opt, SG_PALETTE_RE));
-    row.addEventListener('click', () => commit(opt.value));
-    pop.append(row);
+    btn.append(buildSelectPill(opt, SG_PALETTE_RE));
+    btn.addEventListener('click', () => commit(opt.value));
+    return btn;
   }
+
+  function renderList() {
+    const rows = [];
+    if (clearable && !query) {
+      const noneRow = h('button', {
+        type: 'button',
+        class: 'sg-renderer-select-option sg-renderer-select-option-none',
+        role: 'option',
+      }, document.createTextNode('(none)'));
+      noneRow.addEventListener('click', () => commit(null));
+      rows.push(noneRow);
+    }
+    for (const opt of opts) {
+      // A cell's own value always shows, even when it is inactive.
+      if (opt.inactive && !showAll && String(opt.value) !== String(current)) continue;
+      if (query && !String(opt.label).toLowerCase().includes(query)) continue;
+      rows.push(optionButton(opt));
+    }
+    list.replaceChildren(...rows);
+  }
+  renderList();
+
+  if (hasInactive) {
+    const box = h('input', { type: 'checkbox' });
+    box.addEventListener('change', () => { showAll = box.checked; renderList(); });
+    const label = h('label', { class: 'sg-renderer-select-toggle' },
+      [box, document.createTextNode(` ${anchor._sgSelectInactiveLabel || 'Show all'}`)]);
+    pop.append(label);
+  }
+
+  // Arrow keys between the search box and options; Enter in the search box
+  // picks the first match.
+  pop.addEventListener('keydown', (e) => {
+    const buttons = [...list.querySelectorAll('button')];
+    const at = buttons.indexOf(document.activeElement);
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      buttons[Math.min(at + 1, buttons.length - 1)]?.focus();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (at <= 0) (search || buttons[0])?.focus();
+      else buttons[at - 1].focus();
+    } else if (e.key === 'Enter' && e.target === search) {
+      e.preventDefault();
+      buttons.find((b) => !b.classList.contains('sg-renderer-select-option-none'))?.click();
+    }
+  });
 
   function onKey(e) {
     if (e.key === 'Escape') { e.stopPropagation(); closeSelectEditor(); }
@@ -4544,6 +4602,7 @@ function openSelectEditor(anchor, ctx) {
   document.body.appendChild(pop);
   positionPopover(pop, anchor);
   activeSelectEditor = { pop, onKey, onDocClick, anchor };
+  (search || list.querySelector('.is-selected') || list.querySelector('button'))?.focus({ preventScroll: true });
 }
 
 function closeSelectEditor() {

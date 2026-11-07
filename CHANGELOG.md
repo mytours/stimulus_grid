@@ -15,6 +15,11 @@ engine has its own log at `gem/stimulus_grid_rails/CHANGELOG.md`.
   `{ filterType: 'set', type: 'in', value: [...] }`. Choices come from the
   column's `cellRendererConfig.options`, else `enumValues`, else the distinct
   row values. `setFilterOptions` is exported from `lib/model.js`.
+- `select` editor: options with `inactive: true` (a former user, a retired
+  product) still label cells but stay out of the editor until "Show all" is
+  ticked (`inactiveLabel` renames it); a cell's own value always shows. Lists
+  longer than 8 get a search box (Enter picks the first match), and arrow keys
+  move between options.
 
 ## 0.2.0 (2026-08-28)
 
