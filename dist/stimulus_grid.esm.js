@@ -3898,7 +3898,8 @@ function L(e) {
 		value: e.value,
 		label: e.label ?? String(e.value),
 		color: e.color || null,
-		icon: e.icon || null
+		icon: e.icon || null,
+		inactive: !!e.inactive
 	} : {
 		value: e,
 		label: String(e),
@@ -3922,26 +3923,28 @@ function ui(e, t) {
 		clearable: n?.clearable ?? t.clearable,
 		colorMap: n?.colorMap ?? t.colorMap,
 		editable: n?.editable ?? t.editable,
-		separator: n?.separator ?? t.separator
+		separator: n?.separator ?? t.separator,
+		inactiveLabel: n?.inactiveLabel ?? t.inactiveLabel
 	};
 }
-function di({ options: e = [], placeholder: t = "Select…", editable: n = !0, clearable: r = !1, colorMap: i = null } = {}) {
-	let a = L(e);
-	if (i && typeof i == "object") for (let e of a) !e.color && Object.prototype.hasOwnProperty.call(i, e.value) && (e.color = i[e.value]);
+function di({ options: e = [], placeholder: t = "Select…", editable: n = !0, clearable: r = !1, colorMap: i = null, inactiveLabel: a = "Show all" } = {}) {
+	let o = L(e);
+	if (i && typeof i == "object") for (let e of o) !e.color && Object.prototype.hasOwnProperty.call(i, e.value) && (e.color = i[e.value]);
 	return (e) => {
-		let { value: o, td: s } = e, c = ui(e, {
-			options: a,
+		let { value: s, td: c } = e, l = ui(e, {
+			options: o,
 			placeholder: t,
 			clearable: r,
 			colorMap: i,
-			editable: n
-		}), l = a;
-		if (a.length === 0 && c.options.length && (l = L(c.options), c.colorMap && typeof c.colorMap == "object")) for (let e of l) !e.color && Object.prototype.hasOwnProperty.call(c.colorMap, e.value) && (e.color = c.colorMap[e.value]);
-		s && (s.classList.add("sg-renderer-select-cell"), s._sgSelectOpts = l, s._sgSelectClearable = c.clearable), c.editable && s && !s._sgSelectEditBound && (s._sgSelectEditBound = !0, s.addEventListener("dblclick", (t) => {
-			t._sgSelectHandled || (t._sgSelectHandled = !0, t.stopPropagation(), pi(s, e));
+			editable: n,
+			inactiveLabel: a
+		}), u = o;
+		if (o.length === 0 && l.options.length && (u = L(l.options), l.colorMap && typeof l.colorMap == "object")) for (let e of u) !e.color && Object.prototype.hasOwnProperty.call(l.colorMap, e.value) && (e.color = l.colorMap[e.value]);
+		c && (c.classList.add("sg-renderer-select-cell"), c._sgSelectOpts = u, c._sgSelectClearable = l.clearable, c._sgSelectInactiveLabel = l.inactiveLabel), l.editable && c && !c._sgSelectEditBound && (c._sgSelectEditBound = !0, c.addEventListener("dblclick", (t) => {
+			t._sgSelectHandled || (t._sgSelectHandled = !0, t.stopPropagation(), pi(c, e));
 		}));
-		let u = l.find((e) => String(e.value) === String(o)) || null;
-		return u ? R(u, z) : M(o) ? j("span", { class: "sg-renderer-select-placeholder" }, document.createTextNode(c.placeholder)) : j("span", { class: "sg-renderer-select-bare" }, document.createTextNode(String(o)));
+		let d = u.find((e) => String(e.value) === String(s)) || null;
+		return d ? R(d, z) : M(s) ? j("span", { class: "sg-renderer-select-placeholder" }, document.createTextNode(l.placeholder)) : j("span", { class: "sg-renderer-select-bare" }, document.createTextNode(String(s)));
 	};
 }
 function B(e) {
@@ -3973,34 +3976,60 @@ function pi(e, t) {
 			}
 		})), mi();
 	}
-	if (r) {
-		let e = j("button", {
-			type: "button",
-			class: "sg-renderer-select-option sg-renderer-select-option-none",
-			role: "option"
-		}, document.createTextNode("(none)"));
-		e.addEventListener("click", () => c(null)), s.append(e);
-	}
-	for (let e of n) {
+	let l = n.some((e) => e.inactive), u = !1, d = "", f = j("div", { class: "sg-renderer-select-list" }), p = null;
+	n.length > 8 && (p = j("input", {
+		type: "search",
+		class: "sg-renderer-select-search",
+		placeholder: "Search…",
+		"aria-label": "Search options"
+	}), p.addEventListener("input", () => {
+		d = p.value.trim().toLowerCase(), h();
+	}), s.append(p)), s.append(f);
+	function m(e) {
 		let t = j("button", {
 			type: "button",
-			class: `sg-renderer-select-option${String(e.value) === String(o) ? " is-selected" : ""}`,
+			class: `sg-renderer-select-option${String(e.value) === String(o) ? " is-selected" : ""}${e.inactive ? " is-inactive" : ""}`,
 			role: "option"
 		});
-		t.append(R(e, z)), t.addEventListener("click", () => c(e.value)), s.append(t);
+		return t.append(R(e, z)), t.addEventListener("click", () => c(e.value)), t;
 	}
-	function l(e) {
+	function h() {
+		let e = [];
+		if (r && !d) {
+			let t = j("button", {
+				type: "button",
+				class: "sg-renderer-select-option sg-renderer-select-option-none",
+				role: "option"
+			}, document.createTextNode("(none)"));
+			t.addEventListener("click", () => c(null)), e.push(t);
+		}
+		for (let t of n) t.inactive && !u && String(t.value) !== String(o) || d && !String(t.label).toLowerCase().includes(d) || e.push(m(t));
+		f.replaceChildren(...e);
+	}
+	if (h(), l) {
+		let t = j("input", { type: "checkbox" });
+		t.addEventListener("change", () => {
+			u = t.checked, h();
+		});
+		let n = j("label", { class: "sg-renderer-select-toggle" }, [t, document.createTextNode(` ${e._sgSelectInactiveLabel || "Show all"}`)]);
+		s.append(n);
+	}
+	s.addEventListener("keydown", (e) => {
+		let t = [...f.querySelectorAll("button")], n = t.indexOf(document.activeElement);
+		e.key === "ArrowDown" ? (e.preventDefault(), t[Math.min(n + 1, t.length - 1)]?.focus()) : e.key === "ArrowUp" ? (e.preventDefault(), n <= 0 ? (p || t[0])?.focus() : t[n - 1].focus()) : e.key === "Enter" && e.target === p && (e.preventDefault(), t.find((e) => !e.classList.contains("sg-renderer-select-option-none"))?.click());
+	});
+	function g(e) {
 		e.key === "Escape" && (e.stopPropagation(), mi());
 	}
-	function u(t) {
+	function _(t) {
 		!s.contains(t.target) && !e.contains(t.target) && mi();
 	}
-	document.addEventListener("keydown", l), setTimeout(() => document.addEventListener("mousedown", u), 0), document.body.appendChild(s), F(s, e), fi = {
+	document.addEventListener("keydown", g), setTimeout(() => document.addEventListener("mousedown", _), 0), document.body.appendChild(s), F(s, e), fi = {
 		pop: s,
-		onKey: l,
-		onDocClick: u,
+		onKey: g,
+		onDocClick: _,
 		anchor: e
-	};
+	}, (p || f.querySelector(".is-selected") || f.querySelector("button"))?.focus({ preventScroll: !0 });
 }
 function mi() {
 	if (!fi) return;
