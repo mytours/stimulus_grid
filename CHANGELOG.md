@@ -3,6 +3,14 @@
 All notable changes to the `@ninjaai/stimulus_grid` JS package. The Rails
 engine has its own log at `gem/stimulus_grid_rails/CHANGELOG.md`.
 
+## Unreleased
+
+- `select` editor: options with `inactive: true` (a former user, a retired
+  product) still label cells but stay out of the editor until "Show all" is
+  ticked (`inactiveLabel` renames it); a cell's own value always shows. Lists
+  longer than 8 get a search box (Enter picks the first match), and arrow keys
+  move between options.
+
 ## 0.2.0 (2026-08-28)
 
 The renderer release. 0.1.0 shipped the grid core; this turns it into a
